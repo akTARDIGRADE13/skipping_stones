@@ -69,10 +69,10 @@ public class MPS_Method : MonoBehaviour
                     //それぞれのリストの初期化
                     Vector3 pos = new Vector3(0.1f * x, 0.1f * y, 0.1f * z);
                     Vector3 vel = new Vector3(0f, 0f, 0f);
-                    float n = 0;
+                    float num = 0f;
                     position_l.Add(pos);
                     velocity_l.Add(vel);
-                    n_l.Add(n);
+                    n_l.Add(num);
 
                     //粒子数のカウント
                     cnt++;
@@ -96,10 +96,10 @@ public class MPS_Method : MonoBehaviour
                     //床粒子のもきちんと加えておこう
                     Vector3 pos = new Vector3(0.1f * x, 0.1f * y, 0.1f * z);
                     Vector3 vel = new Vector3(0f, 0f, 0f);
-                    float n = 0;
+                    float num = 0f;
                     position_l.Add(pos);
                     velocity_l.Add(vel);
-                    n_l.Add(n);
+                    n_l.Add(num);
 
                     //粒子数のカウント
                     add_cnt++;
@@ -145,15 +145,15 @@ public class MPS_Method : MonoBehaviour
         float density = densities[temperature - 5];
         float viscosity = viscosities[temperature - 5];
 
-        //粘性項を離散化したときに出てくるΣ
-        //各軸ごとに計算するので3つ
-        float sigma_x = 0f;
-        float sigma_y = 0f;
-        float sigma_z = 0f;
-
-        //Σi≠j
+        //各粒子に対して計算
         for (int i = 0; i < cnt; i++)
         {
+            //粘性項を離散化したときに出てくるΣ
+            //各軸ごとに計算するので3つ
+            float sigma_x = 0f;
+            float sigma_y = 0f;
+            float sigma_z = 0f;
+
             //粒子xiの座標の取得
             float xi_x = position_l[i].x;
             float xi_y = position_l[i].y;
@@ -164,6 +164,7 @@ public class MPS_Method : MonoBehaviour
             float xi_vy = velocity_l[i].y;
             float xi_vz = velocity_l[i].z;
 
+            //Σi≠j
             for (int j = 0; j < cnt + add_cnt; j++)
             {
                 //粒子xjの座標の取得
@@ -182,16 +183,13 @@ public class MPS_Method : MonoBehaviour
                 sigma_y = (xj_vy - xi_vy) * W((float)Math.Sqrt(Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z)));
                 sigma_z = (xj_vz - xi_vz) * W((float)Math.Sqrt(Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z)));
             }
-        }
 
-        //粘性項の算出(d = 3)
-        float viscosity_x = 2 * 3 * sigma_x / lambda / n0;
-        float viscosity_y = 2 * 3 * sigma_y / lambda / n0;
-        float viscosity_z = 2 * 3 * sigma_z / lambda / n0;
+            //粘性項の算出(d = 3)
+            float viscosity_x = 2 * 3 * sigma_x / lambda / n0;
+            float viscosity_y = 2 * 3 * sigma_y / lambda / n0;
+            float viscosity_z = 2 * 3 * sigma_z / lambda / n0;
 
-        //速度と位置の更新(仮)
-        for (int i = 0; i < cnt; i++)
-        {
+            //速度と位置の更新(仮)
             //漸化式に倣って更新していく(Δt = 0.02, g = -9.81)
             //速度の更新(仮)
             float vx_temporary = velocity_l[i].x + 0.02f * (viscosity * viscosity_x / density - 9.81f);
