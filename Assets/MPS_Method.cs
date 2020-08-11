@@ -205,17 +205,18 @@ public class MPS_Method : MonoBehaviour
         }
 
         //仮位置における粒子数密度nの算出
-        //仮位置における粒子数密度n
-        float n = 0f;
-
-        //Σi≠j
+        //各粒子に対して計算
         for (int i = 0; i < cnt; i++)
         {
+            //仮位置における粒子数密度n
+            float n = 0f;
+
             //粒子xiの座標の取得
             float xi_x = position_l[i].x;
             float xi_y = position_l[i].y;
             float xi_z = position_l[i].z;
 
+            //Σi≠j
             for (int j = 0; j < cnt + add_cnt; j++)
             {
                 //粒子xjの座標の取得
@@ -227,6 +228,8 @@ public class MPS_Method : MonoBehaviour
                 //nに関する計算
                 n += W((float)Math.Sqrt(Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z)));
             }
+            //計算結果をリストに保存
+            n_l[i] = n;
         }
     }
 }
