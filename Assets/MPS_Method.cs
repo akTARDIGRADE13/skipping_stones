@@ -47,6 +47,7 @@ public class MPS_Method : MonoBehaviour
     {
         return x * x;
     }
+
     //不完全コレスキー分解
     //正定値対称行列Aを、対角要素が1の下三角行列と対角行列の積に(LDL^T)分解する
     int IncompleteCholeskyDecomp(float[,] A, float[,] L, float[] d, int n)
@@ -268,5 +269,7 @@ public class MPS_Method : MonoBehaviour
             //計算結果をリストに保存
             n_l[i] = n;
         }
+
+        //圧力pについてのポアソン方程式を解く
     }
 }
