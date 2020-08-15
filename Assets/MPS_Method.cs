@@ -8,6 +8,7 @@ public class MPS_Method : MonoBehaviour
 {
     //モデル粒子の情報を呼び出す
     public GameObject particle;
+    public GameObject particle_wall;
 
     //水の密度(kg/m^3)を保存するリスト(5~30℃)
     public static float[] densities = new float[26] { 999.993f, 999.974f, 999.938f, 999.987f, 999.887f, 999.821f, 999.741f, 999.647f, 999.539f, 999.418f, 999.284f, 999.138f, 998.980f, 998.628f, 998.436f, 998.223f, 998.019f, 997.794f, 997.560f, 997.316f, 997.062f, 996.799f, 996.526f, 996.244f, 995.954f, 995.654f };
@@ -200,6 +201,8 @@ public class MPS_Method : MonoBehaviour
                     //モデル粒子を(x,y,z)の点に回転なしで作成
                     Instantiate(particle, new Vector3(0.1f * x, 0.1f * y, 0.1f * z), Quaternion.identity);
 
+                    particle.transform.parent = this.transform;
+
                     //それぞれのリストの初期化
                     Vector3 pos = new Vector3(0.1f * x, 0.1f * y, 0.1f * z);
                     Vector3 vel = new Vector3(0f, 0f, 0f);
@@ -225,7 +228,7 @@ public class MPS_Method : MonoBehaviour
             {
                 for (var z = -30; z < 31; z++)
                 {
-                    Instantiate(particle, new Vector3(0.1f * x, 0.1f * y, 0.1f * z), Quaternion.identity);
+                    Instantiate(particle_wall, new Vector3(0.1f * x, 0.1f * y, 0.1f * z), Quaternion.identity);
 
                     //床粒子のもきちんと加えておこう
                     Vector3 pos = new Vector3(0.1f * x, 0.1f * y, 0.1f * z);
@@ -249,7 +252,7 @@ public class MPS_Method : MonoBehaviour
         float xi_x = position_l[52].x;
         float xi_y = position_l[52].y;
         float xi_z = position_l[52].z;
-        for (int j = 0; j < cnt + add_cnt; j++)
+        for (int j = 0; j < cnt; j++)
         {
             //粒子xjの座標の取得
             if (52 == j) continue;
@@ -371,6 +374,10 @@ public class MPS_Method : MonoBehaviour
         float[][] A = new float[cnt][];
         for (int i = 0; i < cnt; i++)
         {
+            A[i] = new float[cnt];
+        }
+        for (int i = 0; i < cnt; i++)
+        {
             //粒子xiの座標の取得
             float xi_x = position_l[i].x;
             float xi_y = position_l[i].y;
@@ -406,7 +413,7 @@ public class MPS_Method : MonoBehaviour
             //Δt=0.02、d=3で計算
             b[i] = density * lambda * n0 * (n0 - n_l[i]) / (6 * 0.02f * 0.02f * n_l[i]);
         }
-
+        //Debug.Log(b[50]);
         //不完全コレスキー分解付き共役勾配法を用いてこの方程式を解く
         ICCGSolver(A, b, pressure_l, cnt, 10000, 0.001f);
 
@@ -457,6 +464,18 @@ public class MPS_Method : MonoBehaviour
             px = position_l[i].x - 0.02f * np_x / density;
             py = position_l[i].y - 0.02f * np_y / density;
             pz = position_l[i].z - 0.02f * np_z / density;
+        }
+
+        //計算結果を再現
+        int index = 0;
+        GameObject[] waters = GameObject.FindGameObjectsWithTag("Water");
+        foreach (GameObject water in waters)
+        {
+            Transform mytransform = water.transform;
+            Vector3 pos = mytransform.position;
+            pos = position_l[index];
+            mytransform.position = pos;
+            index++;
         }
     }
 }
