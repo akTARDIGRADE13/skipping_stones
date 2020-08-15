@@ -47,6 +47,43 @@ public class MPS_Method : MonoBehaviour
     {
         return x * x;
     }
+    //不完全コレスキー分解
+    //正定値対称行列Aを、対角要素が1の下三角行列と対角行列の積に(LDL^T)分解する
+    int IncompleteCholeskyDecomp(float[,] A, float[,] L, float[] d, int n)
+    {
+        if (n <= 0)
+            return 0;
+
+        d[0] = A[0, 0];
+        L[0, 0] = 1.0f;
+
+        for (int i = 1; i < n; ++i)
+        {
+            // i < k の場合
+            for (int j = 0; j < i; ++j)
+            {
+                if (Math.Abs(A[i, j]) < 1.0e-10)
+                    continue;
+
+                float lld = A[i, j];
+                for (int k = 0; k < j; ++k)
+                {
+                    lld -= L[i, k] * L[j, k] * d[k];
+                }
+                L[i, j] = (1.0f / d[j]) * lld;
+            }
+
+            // i == k の場合
+            float ld = A[i, i];
+            for (int k = 0; k < i; ++k)
+            {
+                ld -= L[i, k] * L[i, k] * d[k];
+            }
+            d[i] = ld;
+            L[i, i] = 1.0f;
+        }
+        return 1;
+    }
 
     //最初一回だけ呼び出される関数
     void Start()
