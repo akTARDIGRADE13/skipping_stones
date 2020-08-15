@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Windows;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -48,41 +49,136 @@ public class MPS_Method : MonoBehaviour
         return x * x;
     }
 
+    //内積を計算する関数
+    float dot(float[] a, float[] b, int n)
+    {
+        float ans = 0;
+        for (int i = 0; i < n; i++)
+        {
+            ans += a[i] * b[i];
+        }
+        return (ans);
+    }
+
     //不完全コレスキー分解
     //正定値対称行列Aを、対角要素が1の下三角行列と対角行列の積に(LDL^T)分解する
-    int IncompleteCholeskyDecomp(float[,] A, float[,] L, float[] d, int n)
+    int IncompleteCholeskyDecomp(float[][] A, float[,] L, float[] d, int n)
     {
         if (n <= 0)
             return 0;
 
-        d[0] = A[0, 0];
-        L[0, 0] = 1.0f;
+        L[0, 0] = A[0][0];
+        d[0] = 1.0f / L[0, 0];
 
         for (int i = 1; i < n; ++i)
         {
-            // i < k の場合
             for (int j = 0; j < i; ++j)
             {
-                if (Math.Abs(A[i, j]) < 1.0e-10)
+                if (Math.Abs(A[i][j]) < 1.0e-10)
                     continue;
 
-                float lld = A[i, j];
+                float lld = A[i][j];
                 for (int k = 0; k < j; ++k)
                 {
                     lld -= L[i, k] * L[j, k] * d[k];
                 }
-                L[i, j] = (1.0f / d[j]) * lld;
+                L[i, j] = lld;
             }
-
-            // i == k の場合
-            float ld = A[i, i];
-            for (int k = 0; k < i; ++k)
-            {
-                ld -= L[i, k] * L[i, k] * d[k];
-            }
-            d[i] = ld;
-            L[i, i] = 1.0f;
+            d[i] = 1.0f / L[i, i];
         }
+        return 1;
+    }
+
+    //前進代入、後進代入で(LDL^T)^-1rを計算する関数
+    void ICRes(float[,] L, float[] d, float[] r, float[] u, int n)
+    {
+        float[] y = new float[n];
+        for (int i = 0; i < n; i++)
+        {
+            float rly = r[i];
+            for (int j = 0; j < i; j++)
+            {
+                rly -= L[i, j] * y[j];
+            }
+            y[i] = rly / L[i, i];
+        }
+        for (int i = n - 1; i >= 0; i--)
+        {
+            float lu = 0f;
+            for (int j = i + 1; j < n; j++)
+            {
+                lu += L[i, j] * u[j];
+            }
+            u[i] = y[i] - d[i] * lu;
+        }
+    }
+
+    //不完全コレスキー分解付き共役勾配法
+    int ICCGSolver(float[][] A, float[] b, float[] x, int n, int max_iter, float eps)
+    {
+        if (n <= 0) return 0;
+        //使用する変数の定義
+        float[] r = new float[n];
+        float[] p = new float[n];
+        float[] y = new float[n];
+        float[] r2 = new float[n];
+        float[] d = new float[n];
+        float[,] L = new float[n, n];
+        //不完全コレスキー分解
+        IncompleteCholeskyDecomp(A, L, d, n);
+        //第0近似解に対する残差の計算
+        for (int i = 0; i < n; i++)
+        {
+            float ax = 0f;
+            for (int j = 0; j < n; j++)
+            {
+                ax += A[i][j] * x[j];
+            }
+            r[i] = b[i] - ax;
+        }
+        //p_0 = (LDL^T)^-1 r_0の計算
+        ICRes(L, d, r, p, n);
+        float rr0 = dot(r, p, n);
+        float rr1, alpha, beta;
+        float e = 0;
+        int k;
+        for (k = 0; k < max_iter; k++)
+        {
+            //y=APの計算
+            for (int i = 0; i < n; i++)
+            {
+
+                y[i] = dot(A[i], p, n);
+            }
+            //alpha=rr0/(P*AP)の計算
+            alpha = rr0 / dot(p, y, n);
+            //解x、残差rの更新
+            for (int i = 0; i < n; i++)
+            {
+                x[i] += alpha * p[i];
+                y[i] += alpha * y[i];
+            }
+            //(r*r)_(k+1)の計算
+            ICRes(L, d, r, r2, n);
+            rr1 = dot(r, r2, n);
+            //収束判定(||r||<=eps)
+            e = (float)Math.Sqrt(rr1);
+            if (e < eps)
+            {
+                k++;
+                break;
+            }
+            //βの計算とPの更新
+            beta = rr1 / rr0;
+            for (int i = 0; i < n; i++)
+            {
+                p[i] = r2[i] + beta * p[i];
+            }
+            //(r*r)_(k+1)を次のステップのために確保しておく
+            rr0 = rr1;
+        }
+        max_iter = k;
+        eps = e;
         return 1;
     }
 
@@ -271,5 +367,96 @@ public class MPS_Method : MonoBehaviour
         }
 
         //圧力pについてのポアソン方程式を解く
+        //係数行列Aの定義(ジャグ配列)
+        float[][] A = new float[cnt][];
+        for (int i = 0; i < cnt; i++)
+        {
+            //粒子xiの座標の取得
+            float xi_x = position_l[i].x;
+            float xi_y = position_l[i].y;
+            float xi_z = position_l[i].z;
+
+            //行列Aの対角要素
+            float plus = 0;
+
+            for (int j = 0; j < cnt; j++)
+            {
+                //粒子xjの座標の取得
+                if (i == j) continue;
+                float xj_x = position_l[j].x;
+                float xj_y = position_l[j].y;
+                float xj_z = position_l[j].z;
+
+                //行列に代入
+                A[i][j] = W((float)Math.Sqrt(Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z)));
+
+                //同時に対角要素について計算
+                plus += A[i][j];
+            }
+            //対角要素を代入
+            A[i][i] = plus * -1;
+        }
+        //結果ベクトルの定義
+        float[] pressure_l = new float[cnt];
+
+        //右辺ベクトルの定義
+        float[] b = new float[cnt];
+        for (int i = 0; i < cnt; i++)
+        {
+            //Δt=0.02、d=3で計算
+            b[i] = density * lambda * n0 * (n0 - n_l[i]) / (6 * 0.02f * 0.02f * n_l[i]);
+        }
+
+        //不完全コレスキー分解付き共役勾配法を用いてこの方程式を解く
+        ICCGSolver(A, b, pressure_l, cnt, 10000, 0.001f);
+
+        //求めた圧力から正しい速度と位置を得る
+        //各粒子について更新
+        for (int i = 0; i < cnt; i++)
+        {
+            //粒子xiの座標の取得
+            float xi_x = position_l[i].x;
+            float xi_y = position_l[i].y;
+            float xi_z = position_l[i].z;
+
+            //∇piを求める
+            float np_x = 0;
+            float np_y = 0;
+            float np_z = 0;
+
+            //Σi≠j
+            for (int j = 0; j < cnt; j++)
+            {
+                //粒子xjの座標の取得
+                if (i == j) continue;
+                float xj_x = position_l[j].x;
+                float xj_y = position_l[j].y;
+                float xj_z = position_l[j].z;
+
+                //圧力の勾配ベクトル
+                np_x += (pressure_l[j] - pressure_l[i]) * (xj_x - xi_x) * W((float)Math.Sqrt(Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z))) / (Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z));
+                np_y += (pressure_l[j] - pressure_l[i]) * (xj_y - xi_y) * W((float)Math.Sqrt(Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z))) / (Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z));
+                np_z += (pressure_l[j] - pressure_l[i]) * (xj_z - xi_z) * W((float)Math.Sqrt(Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z))) / (Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z));
+            }
+
+            //速度の更新
+            float vx = 0;
+            float vy = 0;
+            float vz = 0;
+            //Δt=0.02で計算
+            vx = velocity_l[i].x - 0.02f * np_x / density;
+            vy = velocity_l[i].y - 0.02f * np_y / density;
+            vz = velocity_l[i].z - 0.02f * np_z / density;
+            velocity_l[i] = new Vector3(vx, vy, vz);
+
+            //位置の更新
+            float px = 0;
+            float py = 0;
+            float pz = 0;
+            //Δt=0.02で計算
+            px = position_l[i].x - 0.02f * np_x / density;
+            py = position_l[i].y - 0.02f * np_y / density;
+            pz = position_l[i].z - 0.02f * np_z / density;
+        }
     }
 }
