@@ -79,7 +79,7 @@ public class MPS_Method : MonoBehaviour
                     continue;
 
                 float lld = A[i][j];
-                for (int k = 0; k < j; ++k)
+                for (int k = 0; k <= j; ++k)
                 {
                     lld -= L[i, k] * L[j, k] * d[k];
                 }
@@ -157,7 +157,7 @@ public class MPS_Method : MonoBehaviour
             for (int i = 0; i < n; i++)
             {
                 x[i] += alpha * p[i];
-                y[i] += alpha * y[i];
+                r[i] -= alpha * y[i];
             }
             //(r*r)_(k+1)の計算
             ICRes(L, d, r, r2, n);
@@ -388,6 +388,17 @@ public class MPS_Method : MonoBehaviour
             //行列Aの対角要素
             float plus = 0;
 
+            //ディリクレ境界条件
+            float alpha = 0.95f;
+            if (n_l[i] < alpha * n0)
+            {
+                for (int j = 0; j < cnt + add_cnt; j++)
+                {
+                    if (i == j) A[i][j] = 1;
+                    else A[i][j] = 0;
+                }
+            }
+
             for (int j = 0; j < cnt + add_cnt; j++)
             {
                 //粒子xjの座標の取得
@@ -469,10 +480,10 @@ public class MPS_Method : MonoBehaviour
             float px = 0;
             float py = 0;
             float pz = 0;
-            //Δt=0.02で計算
-            px = position_l[i].x - 0.02f * np_x / density;
-            py = position_l[i].y - 0.02f * np_y / density;
-            pz = position_l[i].z - 0.02f * np_z / density;
+            //Δt=0.02、d=3で計算
+            px = position_l[i].x - 0.02f * np_x * 3 / n0 / density;
+            py = position_l[i].y - 0.02f * np_y * 3 / n0 / density;
+            pz = position_l[i].z - 0.02f * np_z * 3 / n0 / density;
         }
 
         //計算結果を再現
