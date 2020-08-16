@@ -222,11 +222,11 @@ public class MPS_Method : MonoBehaviour
         //こいつらは動かさないので計算量の心配はせずに粒子数を増やせる
         //厚さは影響半径よりも大きくなるようにする
         //上と同様の考え方で
-        for (var x = -30; x < 31; x++)
+        for (var x = -4; x < 5; x++)
         {
             for (var y = -2; y < 0; y++)
             {
-                for (var z = -30; z < 31; z++)
+                for (var z = -4; z < 5; z++)
                 {
                     Instantiate(particle_wall, new Vector3(0.1f * x, 0.1f * y, 0.1f * z), Quaternion.identity);
 
@@ -283,7 +283,7 @@ public class MPS_Method : MonoBehaviour
         float viscosity = viscosities[temperature - 5];
 
         //各粒子に対して計算
-        for (int i = 0; i < cnt; i++)
+        for (int i = 0; i < cnt + add_cnt; i++)
         {
             //粘性項を離散化したときに出てくるΣ
             //各軸ごとに計算するので3つ
@@ -343,7 +343,7 @@ public class MPS_Method : MonoBehaviour
 
         //仮位置における粒子数密度nの算出
         //各粒子に対して計算
-        for (int i = 0; i < cnt; i++)
+        for (int i = 0; i < cnt + add_cnt; i++)
         {
             //仮位置における粒子数密度n
             float n = 0f;
@@ -371,12 +371,12 @@ public class MPS_Method : MonoBehaviour
 
         //圧力pについてのポアソン方程式を解く
         //係数行列Aの定義(ジャグ配列)
-        float[][] A = new float[cnt][];
-        for (int i = 0; i < cnt; i++)
+        float[][] A = new float[cnt + add_cnt][];
+        for (int i = 0; i < cnt + add_cnt; i++)
         {
-            A[i] = new float[cnt];
+            A[i] = new float[cnt + add_cnt];
         }
-        for (int i = 0; i < cnt; i++)
+        for (int i = 0; i < cnt + add_cnt; i++)
         {
             //粒子xiの座標の取得
             float xi_x = position_l[i].x;
@@ -386,7 +386,7 @@ public class MPS_Method : MonoBehaviour
             //行列Aの対角要素
             float plus = 0;
 
-            for (int j = 0; j < cnt; j++)
+            for (int j = 0; j < cnt + add_cnt; j++)
             {
                 //粒子xjの座標の取得
                 if (i == j) continue;
@@ -404,22 +404,29 @@ public class MPS_Method : MonoBehaviour
             A[i][i] = plus * -1;
         }
         //結果ベクトルの定義
-        float[] pressure_l = new float[cnt];
+        float[] pressure_l = new float[cnt + add_cnt];
 
         //右辺ベクトルの定義
-        float[] b = new float[cnt];
-        for (int i = 0; i < cnt; i++)
+        float[] b = new float[cnt + add_cnt];
+        for (int i = 0; i < cnt + add_cnt; i++)
         {
+            //ディリクレ境界条件
+            float alpha = 0.95f;
+            if (n_l[i] < alpha * n0)
+            {
+                b[i] = 0;
+                continue;
+            }
             //Δt=0.02、d=3で計算
             b[i] = density * lambda * n0 * (n0 - n_l[i]) / (6 * 0.02f * 0.02f * n_l[i]);
         }
         //Debug.Log(b[50]);
         //不完全コレスキー分解付き共役勾配法を用いてこの方程式を解く
-        ICCGSolver(A, b, pressure_l, cnt, 10000, 0.001f);
+        ICCGSolver(A, b, pressure_l, cnt + add_cnt, 10000, 0.001f);
 
         //求めた圧力から正しい速度と位置を得る
         //各粒子について更新
-        for (int i = 0; i < cnt; i++)
+        for (int i = 0; i < cnt + add_cnt; i++)
         {
             //粒子xiの座標の取得
             float xi_x = position_l[i].x;
@@ -432,7 +439,7 @@ public class MPS_Method : MonoBehaviour
             float np_z = 0;
 
             //Σi≠j
-            for (int j = 0; j < cnt; j++)
+            for (int j = 0; j < cnt + add_cnt; j++)
             {
                 //粒子xjの座標の取得
                 if (i == j) continue;
