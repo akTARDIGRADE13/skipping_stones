@@ -326,6 +326,8 @@ public class MPS_Method : MonoBehaviour
             float viscosity_y = 2 * 3 * sigma_y / lambda / n0;
             float viscosity_z = 2 * 3 * sigma_z / lambda / n0;
 
+            if (i >= cnt) continue;
+
             //速度と位置の更新(仮)
             //漸化式に倣って更新していく(Δt = 0.02, g = -9.81)
             //速度の更新(仮)
