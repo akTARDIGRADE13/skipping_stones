@@ -38,12 +38,19 @@ public class MPS_Method : MonoBehaviour
     //粒子数密度の初期値
     public static float n0 = 0f;
 
+    //自由表面粒子の判別式に使うalpha
+    public static float alpha = 0.95f;
+
+    public static int roop_cnt = 0;
+
     //重み関数
-    float W(float r)
+    float W(float xi, float yi, float zi, float xj, float yj, float zj)
     {
+        float r = distance(xi, yi, zi, xj, yj, zj);
         if (r_e < r) return 0f;
         return r_e / r - 1;
     }
+
     //二乗を計算する関数
     float Pow2(float x)
     {
@@ -61,25 +68,29 @@ public class MPS_Method : MonoBehaviour
         return (ans);
     }
 
+    //2点間の距離を求める関数
+    float distance(float xi, float yi, float zi, float xj, float yj, float zj)
+    {
+        return (float)Math.Sqrt(Pow2(xj - xi) + Pow2(yj - yi) + Pow2(zj - zi));
+    }
+
     //不完全コレスキー分解
     //正定値対称行列Aを、対角要素が1の下三角行列と対角行列の積に(LDL^T)分解する
     int IncompleteCholeskyDecomp(float[][] A, float[,] L, float[] d, int n)
     {
-        if (n <= 0)
-            return 0;
+        if (n <= 0) return 0;
 
         L[0, 0] = A[0][0];
         d[0] = 1.0f / L[0, 0];
 
-        for (int i = 1; i < n; ++i)
+        for (int i = 1; i < n; i++)
         {
-            for (int j = 0; j < i; ++j)
+            for (int j = 0; j <= i; j++)
             {
-                if (Math.Abs(A[i][j]) < 1.0e-10)
-                    continue;
+                if (Math.Abs(A[i][j]) < 1.0e-10) continue;
 
                 float lld = A[i][j];
-                for (int k = 0; k <= j; ++k)
+                for (int k = 0; k < j; k++)
                 {
                     lld -= L[i, k] * L[j, k] * d[k];
                 }
@@ -204,12 +215,9 @@ public class MPS_Method : MonoBehaviour
                     particle.transform.parent = this.transform;
 
                     //それぞれのリストの初期化
-                    Vector3 pos = new Vector3(0.1f * x, 0.1f * y, 0.1f * z);
-                    Vector3 vel = new Vector3(0f, 0f, 0f);
-                    float num = 0f;
-                    position_l.Add(pos);
-                    velocity_l.Add(vel);
-                    n_l.Add(num);
+                    position_l.Add(new Vector3(0.1f * x, 0.1f * y, 0.1f * z));
+                    velocity_l.Add(new Vector3(0f, 0f, 0f));
+                    n_l.Add(0);
 
                     //粒子数のカウント
                     cnt++;
@@ -231,12 +239,9 @@ public class MPS_Method : MonoBehaviour
                     Instantiate(particle_wall, new Vector3(0.1f * x, 0.1f * y, 0.1f * z), Quaternion.identity);
 
                     //床粒子のもきちんと加えておこう
-                    Vector3 pos = new Vector3(0.1f * x, 0.1f * y, 0.1f * z);
-                    Vector3 vel = new Vector3(0f, 0f, 0f);
-                    float num = 0f;
-                    position_l.Add(pos);
-                    velocity_l.Add(vel);
-                    n_l.Add(num);
+                    position_l.Add(new Vector3(0.1f * x, 0.1f * y, 0.1f * z));
+                    velocity_l.Add(new Vector3(0f, 0f, 0f));
+                    n_l.Add(0);
 
                     //粒子数のカウント
                     add_cnt++;
@@ -245,8 +250,8 @@ public class MPS_Method : MonoBehaviour
         }
 
         //λは使いまわせるからここで計算してしまおう
-        //λを表す分数の分子と分母の定義(λ=n/d)
-        float n = 0f, d = 0f;
+        //λを表す分数の分子の定義(λ=n/d)、d=n0
+        float n = 0f;
 
         //Σi≠j(i=52)
         float xi_x = position_l[52].x;
@@ -260,24 +265,23 @@ public class MPS_Method : MonoBehaviour
             float xj_y = position_l[j].y;
             float xj_z = position_l[j].z;
 
-            //n0に関する計算
-            n0 += W((float)Math.Sqrt(Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z)));
+            //n0(λの分母d)に関する計算
+            n0 += W(xi_x, xi_y, xi_z, xj_x, xj_y, xj_z);
 
             //λに関する計算
             //分子nについての計算
-            n += (Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z)) * W((float)Math.Sqrt(Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z)));
+            n += (Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z)) * W(xi_x, xi_y, xi_z, xj_x, xj_y, xj_z);
 
-            //分母dについての計算
-            d += W((float)Math.Sqrt(Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z)));
         }
         //λの算出
-        lambda = n / d;
+        lambda = n / n0;
     }
 
     //物理演算
     //0.02秒毎に呼び出す
     void FixedUpdate()
     {
+        roop_cnt++;
         //密度と粘度の取得
         float density = densities[temperature - 5];
         float viscosity = viscosities[temperature - 5];
@@ -316,9 +320,9 @@ public class MPS_Method : MonoBehaviour
                 float xj_vz = velocity_l[j].z;
 
                 //Σの計算
-                sigma_x += (xj_vx - xi_vx) * W((float)Math.Sqrt(Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z)));
-                sigma_y = (xj_vy - xi_vy) * W((float)Math.Sqrt(Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z)));
-                sigma_z = (xj_vz - xi_vz) * W((float)Math.Sqrt(Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z)));
+                sigma_x += (xj_vx - xi_vx) * W(xi_x, xi_y, xi_z, xj_x, xj_y, xj_z);
+                sigma_y = (xj_vy - xi_vy) * W(xi_x, xi_y, xi_z, xj_x, xj_y, xj_z);
+                sigma_z = (xj_vz - xi_vz) * W(xi_x, xi_y, xi_z, xj_x, xj_y, xj_z);
             }
 
             //粘性項の算出(d = 3)
@@ -331,9 +335,9 @@ public class MPS_Method : MonoBehaviour
             //速度と位置の更新(仮)
             //漸化式に倣って更新していく(Δt = 0.02, g = -9.81)
             //速度の更新(仮)
-            float vx_temporary = velocity_l[i].x + 0.02f * (viscosity * viscosity_x / density - 9.81f);
+            float vx_temporary = velocity_l[i].x + 0.02f * (viscosity * viscosity_x / density);
             float vy_temporary = velocity_l[i].y + 0.02f * (viscosity * viscosity_y / density - 9.81f);
-            float vz_temporary = velocity_l[i].z + 0.02f * (viscosity * viscosity_z / density - 9.81f);
+            float vz_temporary = velocity_l[i].z + 0.02f * (viscosity * viscosity_z / density);
             velocity_l[i] = new Vector3(vx_temporary, vy_temporary, viscosity_z);
 
             //位置の更新(仮)
@@ -365,19 +369,25 @@ public class MPS_Method : MonoBehaviour
                 float xj_z = position_l[j].z;
 
                 //nに関する計算
-                n += W((float)Math.Sqrt(Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z)));
+                n += W(xi_x, xi_y, xi_z, xj_x, xj_y, xj_z);
             }
             //計算結果をリストに保存
             n_l[i] = n;
         }
 
-        //圧力pについてのポアソン方程式を解く
-        //係数行列Aの定義(ジャグ配列)
-        float[][] A = new float[cnt + add_cnt][];
+        //行列のサイズ
+        int A_size = 0;
         for (int i = 0; i < cnt + add_cnt; i++)
         {
-            A[i] = new float[cnt + add_cnt];
+            //ディリクレ境界条件
+            if (n_l[i] < alpha * n0) continue;
+            A_size++;
         }
+
+        //圧力pについてのポアソン方程式を解く
+        //係数行列Aの定義(ジャグ配列)
+        float[][] A = new float[A_size][];
+        int xi = 0;
         for (int i = 0; i < cnt + add_cnt; i++)
         {
             //粒子xiの座標の取得
@@ -385,62 +395,78 @@ public class MPS_Method : MonoBehaviour
             float xi_y = position_l[i].y;
             float xi_z = position_l[i].z;
 
-            //行列Aの対角要素
-            float plus = 0;
-
             //ディリクレ境界条件
             float alpha = 0.95f;
-            if (n_l[i] < alpha * n0)
-            {
-                for (int j = 0; j < cnt + add_cnt; j++)
-                {
-                    if (i == j) A[i][j] = 1;
-                    else A[i][j] = 0;
-                }
-            }
+            if (n_l[i] < alpha * n0) continue;
 
+            //係数行列の初期化
+            A[xi] = new float[A_size];
+            int xj = 0;
             for (int j = 0; j < cnt + add_cnt; j++)
             {
                 //粒子xjの座標の取得
-                if (i == j) continue;
                 float xj_x = position_l[j].x;
                 float xj_y = position_l[j].y;
                 float xj_z = position_l[j].z;
 
-                //行列に代入
-                A[i][j] = W((float)Math.Sqrt(Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z)));
+                //ディリクレ境界条件
+                if (n_l[j] >= alpha * n0 && xi != xj)
+                {
+                    A[xi][xj] = W(xi_x, xi_y, xi_z, xj_x, xj_y, xj_z);
+                    xj++;
+                }
 
                 //同時に対角要素について計算
-                plus += A[i][j];
+                A[xi][xi] -= W(xi_x, xi_y, xi_z, xj_x, xj_y, xj_z);
             }
-            //対角要素を代入
-            A[i][i] = plus * -1;
+            xi++;
         }
+
         //結果ベクトルの定義
-        float[] pressure_l = new float[cnt + add_cnt];
+        float[] pressure_l = new float[A_size];
 
         //右辺ベクトルの定義
-        float[] b = new float[cnt + add_cnt];
+        float[] b = new float[A_size];
+        xi = 0;
         for (int i = 0; i < cnt + add_cnt; i++)
         {
             //ディリクレ境界条件
             float alpha = 0.95f;
-            if (n_l[i] < alpha * n0)
-            {
-                b[i] = 0;
-                continue;
-            }
+            if (n_l[i] < alpha * n0) continue;
+
             //Δt=0.02、d=3で計算
-            b[i] = density * lambda * n0 * (n0 - n_l[i]) / (6 * 0.02f * 0.02f * n_l[i]);
+            b[xi] = density * lambda * n0 * (n0 - n_l[i]) / (6 * 0.02f * 0.02f * n_l[i]);
+            xi++;
         }
-        //Debug.Log(b[50]);
+        Debug.Log(b[0]);
+        Debug.Log(b[1]);
+        Debug.Log(b[2]);
         //不完全コレスキー分解付き共役勾配法を用いてこの方程式を解く
-        ICCGSolver(A, b, pressure_l, cnt + add_cnt, 10000, 0.001f);
+        ICCGSolver(A, b, pressure_l, A_size, 10000, 0.001f);
+        /*
+        Debug.Log(pressure_l[0]);
+        Debug.Log(pressure_l[1]);
+        Debug.Log(pressure_l[2]);
+        */
 
         //求めた圧力から正しい速度と位置を得る
         //各粒子について更新
+        xi = 0;
         for (int i = 0; i < cnt + add_cnt; i++)
         {
+            //ディリクレ境界条件
+            float alpha = 0.95f;
+            float xi_p;
+            if (n_l[i] < alpha * n0)
+            {
+                xi_p = 0;
+            }
+            else
+            {
+                xi_p = pressure_l[xi];
+                xi++;
+            }
+
             //粒子xiの座標の取得
             float xi_x = position_l[i].x;
             float xi_y = position_l[i].y;
@@ -452,6 +478,7 @@ public class MPS_Method : MonoBehaviour
             float np_z = 0;
 
             //Σi≠j
+            int xj = 0;
             for (int j = 0; j < cnt + add_cnt; j++)
             {
                 //粒子xjの座標の取得
@@ -460,11 +487,27 @@ public class MPS_Method : MonoBehaviour
                 float xj_y = position_l[j].y;
                 float xj_z = position_l[j].z;
 
+                //ディリクレ境界条件
+                float xj_p;
+                if (n_l[j] < alpha * n0)
+                {
+                    xj_p = 0;
+                }
+                else
+                {
+                    xj_p = pressure_l[xj];
+                    xj++;
+                }
+
                 //圧力の勾配ベクトル
-                np_x += (pressure_l[j] - pressure_l[i]) * (xj_x - xi_x) * W((float)Math.Sqrt(Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z))) / (Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z));
-                np_y += (pressure_l[j] - pressure_l[i]) * (xj_y - xi_y) * W((float)Math.Sqrt(Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z))) / (Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z));
-                np_z += (pressure_l[j] - pressure_l[i]) * (xj_z - xi_z) * W((float)Math.Sqrt(Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z))) / (Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z));
+                np_x += (xj_p - xi_p) * (xj_x - xi_x) * W(xi_x, xi_y, xi_z, xj_x, xj_y, xj_z) / (Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z));
+                np_y += (xj_p - xi_p) * (xj_y - xi_y) * W(xi_x, xi_y, xi_z, xj_x, xj_y, xj_z) / (Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z));
+                np_z += (xj_p - xi_p) * (xj_z - xi_z) * W(xi_x, xi_y, xi_z, xj_x, xj_y, xj_z) / (Pow2(xj_x - xi_x) + Pow2(xj_y - xi_y) + Pow2(xj_z - xi_z));
             }
+            //d=3で計算
+            np_x = np_x * 3 / n0;
+            np_y = np_y * 3 / n0;
+            np_z = np_z * 3 / n0;
 
             //速度の更新
             float vx = 0;
@@ -480,10 +523,10 @@ public class MPS_Method : MonoBehaviour
             float px = 0;
             float py = 0;
             float pz = 0;
-            //Δt=0.02、d=3で計算
-            px = position_l[i].x - 0.02f * np_x * 3 / n0 / density;
-            py = position_l[i].y - 0.02f * np_y * 3 / n0 / density;
-            pz = position_l[i].z - 0.02f * np_z * 3 / n0 / density;
+            //Δt=0.02で計算
+            px = position_l[i].x - 0.02f * 0.02f * np_x / density;
+            py = position_l[i].y - 0.02f * 0.02f * np_y / density;
+            pz = position_l[i].z - 0.02f * 0.02f * np_z / density;
         }
 
         //計算結果を再現
@@ -497,5 +540,7 @@ public class MPS_Method : MonoBehaviour
             mytransform.position = pos;
             index++;
         }
+
+        Debug.Log(roop_cnt);
     }
 }
