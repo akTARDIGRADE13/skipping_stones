@@ -82,7 +82,7 @@ public class MPS_Method : MonoBehaviour
 
         L[0, 0] = A[0][0];
         d[0] = 1.0f / L[0, 0];
-
+        //Debug.Log(A[0][0] + " " + d[0]);
         for (int i = 1; i < n; i++)
         {
             for (int j = 0; j <= i; j++)
@@ -95,8 +95,10 @@ public class MPS_Method : MonoBehaviour
                     lld -= L[i, k] * L[j, k] * d[k];
                 }
                 L[i, j] = lld;
+                //Debug.Log(lld + " " + i + " " + j);
             }
             d[i] = 1.0f / L[i, i];
+            //Debug.Log(d[i] + " " + i);
         }
         return 1;
     }
@@ -390,14 +392,13 @@ public class MPS_Method : MonoBehaviour
         int xi = 0;
         for (int i = 0; i < cnt + add_cnt; i++)
         {
+            //ディリクレ境界条件
+            if (n_l[i] < alpha * n0) continue;
+
             //粒子xiの座標の取得
             float xi_x = position_l[i].x;
             float xi_y = position_l[i].y;
             float xi_z = position_l[i].z;
-
-            //ディリクレ境界条件
-            float alpha = 0.95f;
-            if (n_l[i] < alpha * n0) continue;
 
             //係数行列の初期化
             A[xi] = new float[A_size];
@@ -409,18 +410,38 @@ public class MPS_Method : MonoBehaviour
                 float xj_y = position_l[j].y;
                 float xj_z = position_l[j].z;
 
-                //ディリクレ境界条件
-                if (n_l[j] >= alpha * n0 && xi != xj)
+                //Σi≠j
+                if (i == j)
                 {
-                    A[xi][xj] = W(xi_x, xi_y, xi_z, xj_x, xj_y, xj_z);
                     xj++;
+                    continue;
                 }
 
-                //同時に対角要素について計算
                 A[xi][xi] -= W(xi_x, xi_y, xi_z, xj_x, xj_y, xj_z);
+
+                //ディリクレ境界条件
+                if (n_l[j] < alpha * n0) continue;
+                else
+                {
+                    A[xi][xj] = W(xi_x, xi_y, xi_z, xj_x, xj_y, xj_z);
+                    //列のindexの更新
+                    xj++;
+                }
             }
+            //行のindexを更新
             xi++;
         }
+
+        //デバッグ用
+        /*
+        for (int i = 0; i < A_size; i++)
+        {
+            for (int j = 0; j < A_size; j++)
+            {
+                Debug.Log(A[i][j] + " " + i + " " + j);
+            }
+        }
+        //*/
 
         //結果ベクトルの定義
         float[] pressure_l = new float[A_size];
@@ -436,18 +457,20 @@ public class MPS_Method : MonoBehaviour
 
             //Δt=0.02、d=3で計算
             b[xi] = density * lambda * n0 * (n0 - n_l[i]) / (6 * 0.02f * 0.02f * n_l[i]);
+            //Debug.Log(b[xi]);
             xi++;
         }
-        Debug.Log(b[0]);
-        Debug.Log(b[1]);
-        Debug.Log(b[2]);
+
         //不完全コレスキー分解付き共役勾配法を用いてこの方程式を解く
         ICCGSolver(A, b, pressure_l, A_size, 10000, 0.001f);
+
+        //デバッグ用
         /*
-        Debug.Log(pressure_l[0]);
-        Debug.Log(pressure_l[1]);
-        Debug.Log(pressure_l[2]);
-        */
+        for (int i = 0; i < A_size; i++)
+        {
+            Debug.Log(pressure_l[i]);
+        }
+        //*/
 
         //求めた圧力から正しい速度と位置を得る
         //各粒子について更新
@@ -537,6 +560,7 @@ public class MPS_Method : MonoBehaviour
             Transform mytransform = water.transform;
             Vector3 pos = mytransform.position;
             pos = position_l[index];
+            //Debug.Log(position_l[index]);
             mytransform.position = pos;
             index++;
         }
