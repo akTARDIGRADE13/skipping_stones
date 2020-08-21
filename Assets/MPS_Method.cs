@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Skipping_Stones_Simulation : MonoBehaviour
+public class MPS_Method : MonoBehaviour
 {
     //モデル粒子の情報を呼び出す
     public GameObject particle;
