@@ -323,8 +323,8 @@ public class MPS_Method : MonoBehaviour
 
                 //Σの計算
                 sigma_x += (xj_vx - xi_vx) * W(xi_x, xi_y, xi_z, xj_x, xj_y, xj_z);
-                sigma_y = (xj_vy - xi_vy) * W(xi_x, xi_y, xi_z, xj_x, xj_y, xj_z);
-                sigma_z = (xj_vz - xi_vz) * W(xi_x, xi_y, xi_z, xj_x, xj_y, xj_z);
+                sigma_y += (xj_vy - xi_vy) * W(xi_x, xi_y, xi_z, xj_x, xj_y, xj_z);
+                sigma_z += (xj_vz - xi_vz) * W(xi_x, xi_y, xi_z, xj_x, xj_y, xj_z);
             }
 
             //粘性項の算出(d = 3)
