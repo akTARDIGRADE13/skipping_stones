@@ -1,10 +1,9 @@
 ﻿using System;
-using System.Windows;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class MPS_Method : MonoBehaviour
+public class Skipping_Stones_Simulation : MonoBehaviour
 {
     //モデル粒子の情報を呼び出す
     public GameObject particle;
@@ -227,9 +226,84 @@ public class MPS_Method : MonoBehaviour
             }
         }
 
+        /*
+        for (var x = -4; x < -2; x++)
+        {
+            for (var y = 0; y < 4; y++)
+            {
+                for (var z = -4; z < 5; z++)
+                {
+                    Instantiate(particle_wall, new Vector3(0.1f * x, 0.1f * y, 0.1f * z), Quaternion.identity);
+
+                    //床粒子のもきちんと加えておこう
+                    position_l.Add(new Vector3(0.1f * x, 0.1f * y, 0.1f * z));
+                    velocity_l.Add(new Vector3(0f, 0f, 0f));
+                    n_l.Add(0);
+
+                    //粒子数のカウント
+                    add_cnt++;
+                }
+            }
+        }
+        
+        for (var x = 3; x < 5; x++)
+        {
+            for (var y = 0; y < 4; y++)
+            {
+                for (var z = -4; z < 5; z++)
+                {
+                    Instantiate(particle_wall, new Vector3(0.1f * x, 0.1f * y, 0.1f * z), Quaternion.identity);
+
+                    //床粒子のもきちんと加えておこう
+                    position_l.Add(new Vector3(0.1f * x, 0.1f * y, 0.1f * z));
+                    velocity_l.Add(new Vector3(0f, 0f, 0f));
+                    n_l.Add(0);
+
+                    //粒子数のカウント
+                    add_cnt++;
+                }
+            }
+        }
+        for (var x = -2; x < 3; x++)
+        {
+            for (var y = 0; y < 4; y++)
+            {
+                for (var z = -4; z < -2; z++)
+                {
+                    Instantiate(particle_wall, new Vector3(0.1f * x, 0.1f * y, 0.1f * z), Quaternion.identity);
+
+                    //床粒子のもきちんと加えておこう
+                    position_l.Add(new Vector3(0.1f * x, 0.1f * y, 0.1f * z));
+                    velocity_l.Add(new Vector3(0f, 0f, 0f));
+                    n_l.Add(0);
+
+                    //粒子数のカウント
+                    add_cnt++;
+                }
+            }
+        }
+        for (var x = -2; x < 3; x++)
+        {
+            for (var y = 0; y < 4; y++)
+            {
+                for (var z = 3; z < -5; z++)
+                {
+                    Instantiate(particle_wall, new Vector3(0.1f * x, 0.1f * y, 0.1f * z), Quaternion.identity);
+
+                    //床粒子のもきちんと加えておこう
+                    position_l.Add(new Vector3(0.1f * x, 0.1f * y, 0.1f * z));
+                    velocity_l.Add(new Vector3(0f, 0f, 0f));
+                    n_l.Add(0);
+
+                    //粒子数のカウント
+                    add_cnt++;
+                }
+            }
+        }
+        */
+
         //粒子で床を作ろう
         //等間隔で平たく作っていく
-        //こいつらは動かさないので計算量の心配はせずに粒子数を増やせる
         //厚さは影響半径よりも大きくなるようにする
         //上と同様の考え方で
         for (var x = -4; x < 5; x++)
@@ -250,6 +324,7 @@ public class MPS_Method : MonoBehaviour
                 }
             }
         }
+
 
         //λは使いまわせるからここで計算してしまおう
         //λを表す分数の分子の定義(λ=n/d)、d=n0
@@ -475,7 +550,7 @@ public class MPS_Method : MonoBehaviour
         //求めた圧力から正しい速度と位置を得る
         //各粒子について更新
         xi = 0;
-        for (int i = 0; i < cnt + add_cnt; i++)
+        for (int i = 0; i < cnt; i++)
         {
             //ディリクレ境界条件
             float alpha = 0.95f;
